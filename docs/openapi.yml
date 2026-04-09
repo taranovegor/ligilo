@@ -1,0 +1,97 @@
+openapi: 3.0.0
+info:
+  title: Ligilo URL Shortener API
+  description: A minimal, production-ready URL shortener service
+  version: 0.1.1
+  contact:
+    name: Egor Taranov
+    url: https://github.com/taranovegor/ligilo
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /{code}:
+    get:
+      summary: Redirect to the target URL
+      description: Returns a 302 redirect to the original long URL
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: The short code (1-32 characters, alphanumeric, dash, or underscore)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 32
+            pattern: ^[a-zA-Z0-9_-]+$
+      responses:
+        '302':
+          description: Redirect found
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The target URL to redirect to
+        '404':
+          description: Short code not found
+
+  /api/links:
+    post:
+      summary: Create a new short URL
+      description: Generates a short code for a long URL with SSRF protection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The long URL to shorten (http or https only)
+                  maxLength: 2048
+                  example: https://example.com/very/long/path
+      responses:
+        '200':
+          description: Short URL created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: The generated short code
+                    example: V1StG
+                  short_url:
+                    type: string
+                    format: uri
+                    description: The complete short URL
+                    example: http://localhost:8080/V1StG
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                    example: url is required
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                    example: database error

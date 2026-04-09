@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ghcr.io/taranovegor/ligilo:latest
+    container_name: ligilo_app
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://app:ChangeMe@host.docker.internal:5432/shortener}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      RUST_LOG: ${RUST_LOG:-info}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-5}
+      MAX_COLLISION_ATTEMPTS: ${MAX_COLLISION_ATTEMPTS:-3}
+    ports:
+      - "${PORT:-8080}:8080"
+    restart: unless-stopped

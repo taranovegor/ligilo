@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# GitHub
+.github
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+CLAUDE.md
+LICENSE
+
+# Development
+.env
+.env.local
+.editorconfig
+
+# Docker compose dev
+compose.dev.yml
+compose.override.yml
+compose.yml
+
+# Build artifacts
+target
+Dockerfile

@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: ligilo_db
+    environment:
+      POSTGRES_DB: shortener
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ChangeMe
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

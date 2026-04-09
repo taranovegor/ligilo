@@ -4,9 +4,23 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'tests/**'
+      - 'migrations/**'
+      - '.github/workflows/test.yml'
   pull_request:
     branches:
       - master
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'tests/**'
+      - 'migrations/**'
+      - '.github/workflows/test.yml'
 
 jobs:
   test:

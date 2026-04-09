@@ -14,7 +14,7 @@ yet another link shortening service 🚀
 
 ### Option 1: Docker with Local Database (Dev)
 ```bash
-docker-compose -f compose.dev.yml up
+docker-compose -f compose.yml -f compose.dev.yml up
 ```
 Includes PostgreSQL + app with local build:
 - PostgreSQL: `localhost:5432`

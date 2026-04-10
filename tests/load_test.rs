@@ -1,6 +1,15 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
+
+fn calculate_percentile(sorted_times: &[u64], percentile: usize) -> u64 {
+    if sorted_times.is_empty() {
+        return 0;
+    }
+    let idx = (sorted_times.len() * percentile) / 100;
+    sorted_times[idx.min(sorted_times.len() - 1)]
+}
 
 fn print_system_info() {
     println!("\n=== System Information ===");
@@ -89,6 +98,7 @@ async fn load_test_create_links() {
 
     let success_count = Arc::new(AtomicU64::new(0));
     let error_count = Arc::new(AtomicU64::new(0));
+    let response_times = Arc::new(Mutex::new(Vec::new()));
     let start = Instant::now();
 
     let progress_handle = spawn_progress_logger(
@@ -104,11 +114,13 @@ async fn load_test_create_links() {
         let client = client.clone();
         let success = Arc::clone(&success_count);
         let errors = Arc::clone(&error_count);
+        let times = Arc::clone(&response_times);
 
         let handle = tokio::spawn(async move {
             for i in 0..requests_per_task {
                 let url = format!("https://example.com/test?task={}&req={}", task_id, i);
 
+                let req_start = Instant::now();
                 match client
                     .post(format!("{}/api/links", base_url))
                     .json(&serde_json::json!({ "url": url }))
@@ -116,9 +128,13 @@ async fn load_test_create_links() {
                     .await
                 {
                     Ok(response) if response.status().is_success() => {
+                        let elapsed = req_start.elapsed().as_millis() as u64;
+                        times.lock().unwrap().push(elapsed);
                         success.fetch_add(1, Ordering::Relaxed);
                     }
                     _ => {
+                        let elapsed = req_start.elapsed().as_millis() as u64;
+                        times.lock().unwrap().push(elapsed);
                         errors.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -139,6 +155,14 @@ async fn load_test_create_links() {
     let errors = error_count.load(Ordering::Relaxed);
     let rps = total_requests as f64 / elapsed.as_secs_f64();
 
+    let mut times = response_times.lock().unwrap();
+    times.sort();
+    let p50 = calculate_percentile(&times, 50);
+    let p95 = calculate_percentile(&times, 95);
+    let p99 = calculate_percentile(&times, 99);
+    let min = times.first().copied().unwrap_or(0);
+    let max = times.last().copied().unwrap_or(0);
+
     println!("\n=== Load Test Results ===");
     println!("Total requests: {}", total_requests);
     println!("Successful: {}", successes);
@@ -149,6 +173,12 @@ async fn load_test_create_links() {
         "Success rate: {:.1}%",
         (successes as f64 / total_requests as f64) * 100.0
     );
+    println!("\n=== Response Time (ms) ===");
+    println!("Min: {}", min);
+    println!("p50: {}", p50);
+    println!("p95: {}", p95);
+    println!("p99: {}", p99);
+    println!("Max: {}", max);
 
     assert_eq!(errors, 0, "All requests should succeed");
 }
@@ -212,6 +242,7 @@ async fn load_test_redirects() {
 
     let success_count = Arc::new(AtomicU64::new(0));
     let error_count = Arc::new(AtomicU64::new(0));
+    let response_times = Arc::new(Mutex::new(Vec::new()));
     let codes = Arc::new(codes);
     let start = Instant::now();
 
@@ -229,6 +260,7 @@ async fn load_test_redirects() {
         let codes = Arc::clone(&codes);
         let success = Arc::clone(&success_count);
         let errors = Arc::clone(&error_count);
+        let times = Arc::clone(&response_times);
 
         let handle = tokio::spawn(async move {
             // Seed random generator per task for variety
@@ -239,11 +271,16 @@ async fn load_test_redirects() {
                 let idx = (seed as usize) % codes.len();
                 let code = &codes[idx];
 
+                let req_start = Instant::now();
                 match client.get(format!("{}/{}", base_url, code)).send().await {
                     Ok(response) if response.status() == 302 => {
+                        let elapsed = req_start.elapsed().as_millis() as u64;
+                        times.lock().unwrap().push(elapsed);
                         success.fetch_add(1, Ordering::Relaxed);
                     }
                     _ => {
+                        let elapsed = req_start.elapsed().as_millis() as u64;
+                        times.lock().unwrap().push(elapsed);
                         errors.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -263,6 +300,14 @@ async fn load_test_redirects() {
     let errors = error_count.load(Ordering::Relaxed);
     let rps = total_requests as f64 / elapsed.as_secs_f64();
 
+    let mut times = response_times.lock().unwrap();
+    times.sort();
+    let p50 = calculate_percentile(&times, 50);
+    let p95 = calculate_percentile(&times, 95);
+    let p99 = calculate_percentile(&times, 99);
+    let min = times.first().copied().unwrap_or(0);
+    let max = times.last().copied().unwrap_or(0);
+
     println!("\n=== Redirect Load Test Results (Random-Access) ===");
     println!("Created codes: {}", codes.len());
     println!("Total requests: {}", total_requests);
@@ -270,6 +315,12 @@ async fn load_test_redirects() {
     println!("Errors: {}", errors);
     println!("Duration: {:.2}s", elapsed.as_secs_f64());
     println!("Requests/sec: {:.2}", rps);
+    println!("\n=== Response Time (ms) ===");
+    println!("Min: {}", min);
+    println!("p50: {}", p50);
+    println!("p95: {}", p95);
+    println!("p99: {}", p99);
+    println!("Max: {}", max);
 
     assert_eq!(errors, 0, "All redirects should succeed");
 }

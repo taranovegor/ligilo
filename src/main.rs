@@ -2,6 +2,7 @@ use ligilo::{create_app, AppState};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -27,6 +28,21 @@ async fn main() {
         .unwrap_or_else(|_| "5".to_string())
         .parse::<u32>()
         .expect("DB_MAX_CONNECTIONS must be a valid u32");
+    let cache_max_capacity = std::env::var("CACHE_MAX_CAPACITY")
+        .unwrap_or_else(|_| "100000".to_string())
+        .parse::<u64>()
+        .expect("CACHE_MAX_CAPACITY must be a valid u64");
+    let cache_ttl_secs = std::env::var("CACHE_TTL_SECS")
+        .unwrap_or_else(|_| "300".to_string())
+        .parse::<u64>()
+        .expect("CACHE_TTL_SECS must be a valid u64");
+
+    if cache_ttl_secs == 0 {
+        panic!("CACHE_TTL_SECS must be greater than 0");
+    }
+    if cache_max_capacity == 0 {
+        panic!("CACHE_MAX_CAPACITY must be greater than 0");
+    }
 
     let pool = PgPoolOptions::new()
         .max_connections(db_max_connections)
@@ -39,10 +55,22 @@ async fn main() {
         .await
         .expect("Failed to run migrations");
 
+    let url_cache = moka::future::Cache::builder()
+        .max_capacity(cache_max_capacity)
+        .time_to_live(Duration::from_secs(cache_ttl_secs))
+        .build();
+
+    tracing::info!(
+        "Cache configured: capacity={}, ttl={}s",
+        cache_max_capacity,
+        cache_ttl_secs
+    );
+
     let state = AppState {
         db: pool,
         base_url: Arc::from(base_url.as_str()),
         max_collision_attempts,
+        url_cache,
     };
     let app = create_app(state);
 

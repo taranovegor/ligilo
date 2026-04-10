@@ -102,7 +102,11 @@ async fn redirect(Path(code): Path<String>, State(state): State<AppState>) -> im
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    match db::get_url(&state.db, &code).await {
+    match state
+        .url_cache
+        .try_get_with(code.clone(), db::get_url(&state.db, &code))
+        .await
+    {
         Ok(Some(url)) => {
             info!("Redirect: {} -> {}", code, url);
             (StatusCode::FOUND, [("Location", url)], "").into_response()
@@ -154,6 +158,10 @@ async fn create_short_url(
         let code = nanoid::nanoid!(5);
         match db::create_url(&state.db, &code, &normalized).await {
             Ok(()) => {
+                state
+                    .url_cache
+                    .insert(code.clone(), Some(normalized.clone()))
+                    .await;
                 let short_url = format!("{}/{}", state.base_url, code);
                 info!("Created short URL: {} -> {}", code, normalized);
                 return Ok(Json(CreateUrlResponse { code, short_url }));

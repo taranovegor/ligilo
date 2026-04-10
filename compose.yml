@@ -8,6 +8,8 @@ services:
       RUST_LOG: ${RUST_LOG:-info}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-5}
       MAX_COLLISION_ATTEMPTS: ${MAX_COLLISION_ATTEMPTS:-3}
+      CACHE_MAX_CAPACITY: ${CACHE_MAX_CAPACITY:-100000}
+      CACHE_TTL_SECS: ${CACHE_TTL_SECS:-300}
     ports:
       - "${PORT:-8080}:8080"
     restart: unless-stopped

@@ -102,9 +102,15 @@ async fn redirect(Path(code): Path<String>, State(state): State<AppState>) -> im
         return StatusCode::NOT_FOUND.into_response();
     }
 
+    if let Some(url) = state.url_cache.get(&code).await {
+        info!("Redirect (cached): {} -> {}", code, url);
+        return (StatusCode::FOUND, [("Location", url)], "").into_response();
+    }
+
     match db::get_url(&state.db, &code).await {
         Ok(Some(url)) => {
-            info!("Redirect: {} -> {}", code, url);
+            state.url_cache.insert(code.clone(), url.clone()).await;
+            info!("Redirect (from DB): {} -> {}", code, url);
             (StatusCode::FOUND, [("Location", url)], "").into_response()
         }
         Ok(None) => StatusCode::NOT_FOUND.into_response(),

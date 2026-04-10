@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Ligilo URL Shortener API
   description: A minimal, production-ready URL shortener service
-  version: 0.1.1
+  version: 0.2.0
   contact:
     name: Egor Taranov
     url: https://github.com/taranovegor/ligilo

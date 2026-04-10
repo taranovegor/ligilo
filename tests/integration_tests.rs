@@ -5,6 +5,7 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
 use tower::ServiceExt;
 
 // --- helpers -----------------------------------------------------------------
@@ -28,10 +29,16 @@ async fn create_test_router() -> impl tower::Service<
         .await
         .expect("Failed to run migrations");
 
+    let url_cache = moka::future::Cache::builder()
+        .max_capacity(10_000)
+        .time_to_live(Duration::from_secs(60))
+        .build();
+
     let state = ligilo::AppState {
         db: pool,
         base_url: std::sync::Arc::from("http://localhost:8080"),
         max_collision_attempts: 2,
+        url_cache,
     };
 
     ligilo::create_app(state)

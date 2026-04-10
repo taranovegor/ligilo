@@ -5,15 +5,12 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
 use tower::ServiceExt;
 
 // --- helpers -----------------------------------------------------------------
 
-async fn create_test_router() -> impl tower::Service<
-    Request<Body>,
-    Response = axum::response::Response,
-    Error = std::convert::Infallible,
-> {
+async fn create_test_state() -> ligilo::AppState {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:@localhost/shortener".to_string());
 
@@ -28,13 +25,21 @@ async fn create_test_router() -> impl tower::Service<
         .await
         .expect("Failed to run migrations");
 
-    let state = ligilo::AppState {
+    let url_cache = moka::future::Cache::builder()
+        .max_capacity(10_000)
+        .time_to_live(Duration::from_secs(60))
+        .build();
+
+    ligilo::AppState {
         db: pool,
         base_url: std::sync::Arc::from("http://localhost:8080"),
         max_collision_attempts: 2,
-    };
+        url_cache,
+    }
+}
 
-    ligilo::create_app(state)
+async fn create_test_router() -> ligilo::Router {
+    ligilo::create_app(create_test_state().await)
 }
 
 async fn json_body(response: axum::response::Response) -> Value {
@@ -42,14 +47,7 @@ async fn json_body(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-async fn post_links(
-    app: impl tower::Service<
-        Request<Body>,
-        Response = axum::response::Response,
-        Error = std::convert::Infallible,
-    >,
-    url: &str,
-) -> axum::response::Response {
+async fn post_links(app: ligilo::Router, url: &str) -> axum::response::Response {
     app.oneshot(
         Request::builder()
             .uri("/api/links")
@@ -311,4 +309,49 @@ async fn test_shorten_valid_public_ipv6() {
     // 2001:4860:4860::8888 is public DNS (Google)
     let response = post_links(app, "http://[2001:4860:4860::8888]/").await;
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+// --- Cache behaviour ----------------------------------------------------------
+
+#[tokio::test]
+#[ignore]
+async fn test_redirect_served_from_cache() {
+    let state = create_test_state().await;
+    let app = ligilo::create_app(state.clone());
+
+    // Create URL — pre-warms cache
+    let create_resp = post_links(app, "https://example.com/cache-hit-test").await;
+    assert_eq!(create_resp.status(), StatusCode::OK);
+    let body = json_body(create_resp).await;
+    let code = body["code"].as_str().unwrap().to_string();
+
+    // Verify cache was pre-warmed
+    assert!(
+        state.url_cache.get(&code).await.is_some(),
+        "cache should be populated after create"
+    );
+
+    // Delete from DB so only cache can serve the redirect
+    sqlx::query("DELETE FROM urls WHERE code = $1")
+        .bind(&code)
+        .execute(&state.db)
+        .await
+        .unwrap();
+
+    let app = ligilo::create_app(state.clone());
+    let redirect_resp = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/{}", code))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        redirect_resp.status(),
+        StatusCode::FOUND,
+        "should redirect from cache even after DB row deleted"
+    );
 }

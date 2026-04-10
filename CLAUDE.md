@@ -81,6 +81,24 @@ Example: `V1StG`
 
 **Collision handling:** Generate code → INSERT → on unique constraint violation, retry up to `MAX_COLLISION_ATTEMPTS` times (configurable via environment variable).
 
+## URL Cache (In-Memory)
+
+GET `/{code}` requests first hit in-memory LRU cache (moka). On cache miss, fetch from PostgreSQL and insert into cache.
+
+**Benefits:**
+- Typical URL shortener traffic is 95–99% reads with Zipf-distributed access (few links get most traffic)
+- Cache can eliminate 80–95% of database queries
+- Reduces latency from ~5–10ms (DB) to ~100µs (cache)
+
+**Trade-offs:**
+- 5-minute TTL by default (configurable via `CACHE_TTL_SECS`) means stale reads up to that window
+- Acceptable for shorteners: links are immutable after creation
+- To invalidate immediately, would need a invalidation endpoint or pub-sub system (future work)
+
+**Configuration:**
+- `CACHE_MAX_CAPACITY`: Number of entries (default 100k, ~10MB memory)
+- `CACHE_TTL_SECS`: Seconds before expiration (default 300)
+
 ## Security
 
 **SSRF Protection:** POST `/api/links` validates the target URL to prevent redirecting to internal services:
@@ -111,6 +129,8 @@ PORT                      8080                                      (default)
 RUST_LOG                  info                                      (default)
 DB_MAX_CONNECTIONS        50                                        (default)
 MAX_COLLISION_ATTEMPTS    3                                         (default)
+CACHE_MAX_CAPACITY        100000                                    (default)
+CACHE_TTL_SECS            300                                       (default)
 ```
 
 **DB_MAX_CONNECTIONS**: PostgreSQL connection pool size. Tune based on concurrency:
@@ -119,6 +139,18 @@ MAX_COLLISION_ATTEMPTS    3                                         (default)
 - High-load (10k+ concurrent): 100-200
 
 Higher values increase memory usage (~10MB per connection). Recommended for load testing: 50+.
+
+**CACHE_MAX_CAPACITY**: In-memory URL cache size (entries). Tune based on working set:
+- Small (~1k unique links): 10,000
+- Medium (~100k unique links): 100,000
+- Large (>1M unique links): 500,000+
+
+Each entry stores code + URL (~100 bytes avg). Cache uses LRU eviction.
+
+**CACHE_TTL_SECS**: URL cache entry lifetime in seconds. Allows expiration of stale mappings:
+- Short (60s): Frequent URL updates
+- Medium (300s / 5min): Typical case, rare updates
+- Long (3600s / 1h): Static links, reduce DB load
 
 ## Testing
 

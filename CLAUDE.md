@@ -19,13 +19,17 @@ Client → Axum → PostgreSQL
 | `tracing`    | Logs                       |
 | `nanoid`     | Short code generation      |
 | `tower-http` | Middleware (CORS, tracing) |
+| `moka`       | In-memory URL cache        |
+| `metrics` + `metrics-exporter-prometheus` | Prometheus metrics |
 
 ## Project Structure
 
 ```
 src/
-├── main.rs      # server bootstrap, router, AppState
+├── main.rs      # server bootstrap, env config, listeners
+├── lib.rs       # AppState, create_app, create_metrics_app
 ├── routes.rs    # all handlers (GET, POST)
+├── metrics.rs   # Prometheus recorder, HTTP middleware, /metrics endpoint
 └── db.rs        # sqlx queries
 
 migrations/
@@ -59,6 +63,26 @@ Create a new short URL.
   "short_url": "http://localhost:8080/V1StGXR8"
 }
 ```
+
+### GET /metrics (metrics port only)
+Prometheus scrape endpoint, served on a separate listener (`METRICS_PORT`, default 9090), not on the public port.
+Returns Prometheus text format (`text/plain; version=0.0.4`) — the only non-JSON response, since it is
+consumed by Prometheus, not API clients.
+
+## Metrics
+
+| Metric | Type | Labels |
+|---|---|---|
+| `http_requests_total` | counter | `method`, `route`, `status` |
+| `http_request_duration_seconds` | histogram | `method`, `route`, `status` |
+| `cache_requests_total` | counter | `result` = `hit` \| `miss` (`miss` = the request ran the DB lookup itself; requests coalesced onto an in-flight lookup count as `hit`, as in Caffeine and nginx) |
+| `cache_entries` | gauge | — (pending moka maintenance is flushed on each scrape, so the count is exact at scrape time) |
+| `links_created_total` | counter | — |
+| `code_collisions_total` | counter | — |
+| `db_pool_connections` | gauge | `state` = `idle` \| `active` |
+
+`route` is the matched route template (`/{code}`), never the raw path — keeps label cardinality bounded.
+Requests matching no route get `route="unmatched"`. Gauges are refreshed on each scrape.
 
 ## Database Schema
 
@@ -117,6 +141,7 @@ pub struct AppState {
     pub db:                        PgPool,
     pub base_url:                  Arc<str>,
     pub max_collision_attempts:    usize,
+    pub url_cache:                 moka::future::Cache<String, Option<String>>,
 }
 ```
 
@@ -126,6 +151,8 @@ pub struct AppState {
 DATABASE_URL              postgres://user:pass@localhost/shortener  (required)
 BASE_URL                  http://localhost:8080                     (default)
 PORT                      8080                                      (default)
+METRICS_PORT              9090                                      (default, must differ from PORT)
+METRICS_HOST              127.0.0.1                                 (default; Docker image sets 0.0.0.0, compose.yml uses it as the host interface to publish on)
 RUST_LOG                  info                                      (default)
 DB_MAX_CONNECTIONS        50                                        (default)
 MAX_COLLISION_ATTEMPTS    3                                         (default)

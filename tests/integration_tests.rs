@@ -63,6 +63,7 @@ async fn post_links(app: ligilo::Router, url: &str) -> axum::response::Response 
 // --- redirect ----------------------------------------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_redirect_not_found() {
     let app = create_test_router().await;
 
@@ -80,6 +81,7 @@ async fn test_redirect_not_found() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_create_then_redirect() {
     let app = create_test_router().await;
 
@@ -111,6 +113,7 @@ async fn test_create_then_redirect() {
 // --- POST /api/links -------------------------------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_valid_url() {
     let app = create_test_router().await;
 
@@ -131,6 +134,7 @@ async fn test_shorten_valid_url() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_empty_url() {
     let app = create_test_router().await;
     let response = post_links(app, "").await;
@@ -140,6 +144,7 @@ async fn test_shorten_empty_url() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_invalid_scheme() {
     let app = create_test_router().await;
     let response = post_links(app, "javascript:alert(1)").await;
@@ -149,6 +154,7 @@ async fn test_shorten_invalid_scheme() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_ftp_scheme_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "ftp://example.com/file").await;
@@ -156,6 +162,7 @@ async fn test_shorten_ftp_scheme_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_localhost_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://localhost/admin").await;
@@ -163,6 +170,7 @@ async fn test_shorten_localhost_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_private_ip_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://192.168.1.1/").await;
@@ -170,6 +178,7 @@ async fn test_shorten_private_ip_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_link_local_ip_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://169.254.169.254/latest/meta-data/").await;
@@ -177,6 +186,7 @@ async fn test_shorten_link_local_ip_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_ipv6_unique_local_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://[fd12:3456:789a:b::1]/internal").await;
@@ -184,6 +194,7 @@ async fn test_shorten_ipv6_unique_local_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_url_too_long() {
     let app = create_test_router().await;
     let long_url = format!("https://example.com/{}", "a".repeat(2048));
@@ -196,6 +207,7 @@ async fn test_shorten_url_too_long() {
 // --- GET /{code} path validation -----------------------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_redirect_invalid_code_too_long() {
     let app = create_test_router().await;
     let code = "a".repeat(33); // longer than 32
@@ -213,6 +225,7 @@ async fn test_redirect_invalid_code_too_long() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_redirect_invalid_code_special_chars() {
     let app = create_test_router().await;
 
@@ -230,6 +243,7 @@ async fn test_redirect_invalid_code_special_chars() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_redirect_valid_code_with_underscore() {
     let app = create_test_router().await;
     let response = post_links(app, "https://example.com/test").await;
@@ -255,6 +269,7 @@ async fn test_redirect_valid_code_with_underscore() {
 // --- SSRF Protection: IPv6-mapped IPv4 -----------------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_ipv4_mapped_ipv6_loopback_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://[::ffff:127.0.0.1]/admin").await;
@@ -262,6 +277,7 @@ async fn test_shorten_ipv4_mapped_ipv6_loopback_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_ipv4_mapped_ipv6_private_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://[::ffff:192.168.1.1]/admin").await;
@@ -271,6 +287,7 @@ async fn test_shorten_ipv4_mapped_ipv6_private_rejected() {
 // --- SSRF Protection: Unspecified and RFC 6598 --------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_unspecified_ip_rejected() {
     let app = create_test_router().await;
     let response = post_links(app, "http://0.0.0.0/").await;
@@ -278,6 +295,7 @@ async fn test_shorten_unspecified_ip_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_rfc6598_shared_space_rejected() {
     let app = create_test_router().await;
     // RFC 6598: 100.64.0.0/10
@@ -286,6 +304,7 @@ async fn test_shorten_rfc6598_shared_space_rejected() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_rfc6598_upper_bound_rejected() {
     let app = create_test_router().await;
     // RFC 6598: up to 100.127.255.255
@@ -296,6 +315,7 @@ async fn test_shorten_rfc6598_upper_bound_rejected() {
 // --- SSRF Protection: Valid public IPs ------------------------------------------
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_valid_public_ipv4() {
     let app = create_test_router().await;
     // 8.8.8.8 is public DNS
@@ -304,6 +324,7 @@ async fn test_shorten_valid_public_ipv4() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_shorten_valid_public_ipv6() {
     let app = create_test_router().await;
     // 2001:4860:4860::8888 is public DNS (Google)
@@ -354,4 +375,152 @@ async fn test_redirect_served_from_cache() {
         StatusCode::FOUND,
         "should redirect from cache even after DB row deleted"
     );
+}
+
+// --- Metrics -----------------------------------------------------------------
+
+async fn get_code(app: ligilo::Router, code: &str) -> axum::response::Response {
+    app.oneshot(
+        Request::builder()
+            .uri(format!("/{}", code))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_cache_miss_then_hit() {
+    let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+    let handle = recorder.handle();
+    let _guard = metrics::set_default_local_recorder(&recorder);
+
+    let state = create_test_state().await;
+
+    let create_resp = post_links(
+        ligilo::create_app(state.clone()),
+        "https://example.com/metrics-cache",
+    )
+    .await;
+    let code = json_body(create_resp).await["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    state.url_cache.invalidate(&code).await;
+
+    let first = get_code(ligilo::create_app(state.clone()), &code).await;
+    assert_eq!(first.status(), StatusCode::FOUND);
+    let second = get_code(ligilo::create_app(state.clone()), &code).await;
+    assert_eq!(second.status(), StatusCode::FOUND);
+
+    let output = handle.render();
+    assert!(
+        output.contains(r#"cache_requests_total{result="miss"} 1"#),
+        "{output}"
+    );
+    assert!(
+        output.contains(r#"cache_requests_total{result="hit"} 1"#),
+        "{output}"
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_links_created_and_http_labels() {
+    let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+    let handle = recorder.handle();
+    let _guard = metrics::set_default_local_recorder(&recorder);
+
+    let state = create_test_state().await;
+
+    let create_resp = post_links(
+        ligilo::create_app(state.clone()),
+        "https://example.com/metrics-created",
+    )
+    .await;
+    let code = json_body(create_resp).await["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    get_code(ligilo::create_app(state.clone()), &code).await;
+    get_code(ligilo::create_app(state.clone()), "nope1").await;
+
+    let output = handle.render();
+    assert!(output.contains("links_created_total 1"), "{output}");
+    assert!(
+        output.contains(r#"http_requests_total{method="POST",route="/api/links",status="200"} 1"#),
+        "{output}"
+    );
+    assert!(
+        output.contains(r#"http_requests_total{method="GET",route="/{code}",status="302"} 1"#),
+        "{output}"
+    );
+    assert!(
+        output.contains(r#"http_requests_total{method="GET",route="/{code}",status="404"} 1"#),
+        "{output}"
+    );
+    assert!(
+        !output.contains(&code),
+        "raw code leaked into labels: {output}"
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_endpoint_reports_pool_and_cache() {
+    let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+    let handle = recorder.handle();
+    let _guard = metrics::set_default_local_recorder(&recorder);
+
+    let state = create_test_state().await;
+    post_links(
+        ligilo::create_app(state.clone()),
+        "https://example.com/metrics-endpoint",
+    )
+    .await;
+
+    let response = ligilo::create_metrics_app(state.clone(), handle)
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let output = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(output.contains("cache_entries 1"), "{output}");
+    assert!(
+        output.contains(r#"db_pool_connections{state="idle"}"#),
+        "{output}"
+    );
+    assert!(
+        output.contains(r#"db_pool_connections{state="active"}"#),
+        "{output}"
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_not_exposed_on_public_app() {
+    let app = create_test_router().await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }

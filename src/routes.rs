@@ -1,7 +1,7 @@
 use axum::{
     extract::{FromRequest, Path, Request, State},
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -102,20 +102,33 @@ async fn redirect(Path(code): Path<String>, State(state): State<AppState>) -> im
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    match state
+    let entry = state
         .url_cache
-        .try_get_with(code.clone(), db::get_url(&state.db, &code))
-        .await
-    {
-        Ok(Some(url)) => {
-            info!("Redirect: {} -> {}", code, url);
-            (StatusCode::FOUND, [("Location", url)], "").into_response()
+        .entry(code.clone())
+        .or_try_insert_with(db::get_url(&state.db, &code))
+        .await;
+
+    match entry {
+        Ok(entry) => {
+            let result = if entry.is_fresh() { "miss" } else { "hit" };
+            metrics::counter!("cache_requests_total", "result" => result).increment(1);
+            redirect_response(&code, entry.into_value())
         }
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
+            metrics::counter!("cache_requests_total", "result" => "miss").increment(1);
             tracing::error!("Database error: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
+    }
+}
+
+fn redirect_response(code: &str, target: Option<String>) -> Response {
+    match target {
+        Some(url) => {
+            info!("Redirect: {} -> {}", code, url);
+            (StatusCode::FOUND, [("Location", url)], "").into_response()
+        }
+        None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
@@ -162,12 +175,14 @@ async fn create_short_url(
                     .url_cache
                     .insert(code.clone(), Some(normalized.clone()))
                     .await;
+                metrics::counter!("links_created_total").increment(1);
                 let short_url = format!("{}/{}", state.base_url, code);
                 info!("Created short URL: {} -> {}", code, normalized);
                 return Ok(Json(CreateUrlResponse { code, short_url }));
             }
             Err(sqlx::Error::Database(ref db_err)) if db_err.code().as_deref() == Some("23505") => {
                 tracing::warn!("Code collision on attempt {}: {}", attempt + 1, code);
+                metrics::counter!("code_collisions_total").increment(1);
             }
             Err(e) => {
                 tracing::error!("Database error: {}", e);

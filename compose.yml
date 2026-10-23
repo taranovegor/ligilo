@@ -12,4 +12,5 @@ services:
       CACHE_TTL_SECS: ${CACHE_TTL_SECS:-300}
     ports:
       - "${PORT:-8080}:8080"
+      - "${METRICS_HOST:-127.0.0.1}:${METRICS_PORT:-9090}:9090"
     restart: unless-stopped

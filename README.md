@@ -75,6 +75,17 @@ Response:
 curl -L http://localhost:8080/V1StGXR8
 ```
 
+## Metrics
+
+Prometheus metrics are served on a separate port, not on the public one:
+```bash
+curl http://localhost:9090/metrics
+```
+- `METRICS_PORT` — default `9090`, must differ from `PORT`
+- `METRICS_HOST` — default `127.0.0.1`. With `compose.yml` it is the host interface the port is published on (default `127.0.0.1`), so `/metrics` stays private unless you set it to `0.0.0.0`
+
+Exposed metrics: HTTP requests and latency per route, cache hits/misses and size, links created, code collisions, DB pool connections. See [CLAUDE.md](CLAUDE.md#metrics) for the full list.
+
 ## Architecture
 
 See [CLAUDE.md](CLAUDE.md) for detailed technical documentation.
